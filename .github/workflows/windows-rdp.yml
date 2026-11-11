@@ -1,6 +1,6 @@
 name: WINDOWS RDP - CLOUDFLARE
 on:
-  workflow_dispatch
+  workflow_dispatch:
 
 jobs:
   build:
@@ -24,22 +24,36 @@ jobs:
           Write-Host "✅ Password Configured!"
 
       - name: Start Cloudflare Tunnel
+        shell: powershell
         run: |
           Write-Host "============================================"
           Write-Host "🚀 WINDOWS RDP - CLOUDFLARE TUNNEL"
           Write-Host "============================================"
           Write-Host ""
-          Start-Process PowerShell -ArgumentList '-NoExit -Command "cloudflared tunnel --url tcp://localhost:3389"'
-          Start-Sleep -Seconds 15
-          Write-Host ""
-          Write-Host "✅ TUNNEL STARTED! Check separate PowerShell window for URL"
+          
+          # تشغيل النفق في الخلفية وحفظ المخرجات في ملف
+          Start-Process -FilePath "cloudflared" -ArgumentList "tunnel --url tcp://localhost:3389" -RedirectStandardError "cloudflared.log" -NoNewWindow
+          
+          # الانتظار 20 ثانية حتى يتم إنشاء الرابط
+          Start-Sleep -Seconds 20
+          
+          # قراءة الملف واستخراج الرابط
+          $logContent = Get-Content -Path "cloudflared.log" -Raw
+          $urlMatch = [regex]::Match($logContent, 'https://[a-zA-Z0-9-]+\.trycloudflare\.com')
+
+          if ($urlMatch.Success) {
+            Write-Host "✅ TUNNEL STARTED SUCCESSFULLY!"
+            Write-Host "🌐 YOUR TUNNEL URL: $($urlMatch.Value)"
+            Write-Host "💡 Copy this URL. You will need it to connect."
+          } else {
+            Write-Host "❌ Could not find the URL. Here is the log:"
+            Write-Host $logContent
+          }
+
           Write-Host ""
           Write-Host "📋 CONNECTION DETAILS:"
           Write-Host "   USERNAME: runneradmin"
           Write-Host "   PASSWORD: P@ssw0rd123!"
-          Write-Host "   OS: Windows Server 2022"
-          Write-Host "   CPU: 4 cores"
-          Write-Host "   RAM: 16GB"
           Write-Host "============================================"
 
       - name: Keep Session Alive
