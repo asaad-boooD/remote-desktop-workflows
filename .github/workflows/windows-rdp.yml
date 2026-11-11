@@ -5,7 +5,7 @@ on:
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 9999
+    timeout-minutes: 360
 
     steps:
       - name: Setup Cloudflared
@@ -31,25 +31,29 @@ jobs:
           Write-Host "============================================"
           Write-Host ""
           
-          # تشغيل النفق في الخلفية وحفظ المخرجات في ملف
-          Start-Process -FilePath "cloudflared" -ArgumentList "tunnel --url tcp://localhost:3389" -RedirectStandardError "cloudflared.log" -NoNewWindow
+          # تشغيل النفق مع كتابة السجلات في ملف محدد
+          Start-Process -FilePath "cloudflared" -ArgumentList "tunnel --url tcp://localhost:3389 --logfile cloudflared.log --loglevel debug" -NoNewWindow
           
-          # الانتظار 20 ثانية حتى يتم إنشاء الرابط
-          Start-Sleep -Seconds 20
+          # الانتظار 30 ثانية لضمان كتابة الرابط في الملف
+          Start-Sleep -Seconds 30
           
-          # قراءة الملف واستخراج الرابط
-          $logContent = Get-Content -Path "cloudflared.log" -Raw
-          $urlMatch = [regex]::Match($logContent, 'https://[a-zA-Z0-9-]+\.trycloudflare\.com')
-
-          if ($urlMatch.Success) {
-            Write-Host "✅ TUNNEL STARTED SUCCESSFULLY!"
-            Write-Host "🌐 YOUR TUNNEL URL: $($urlMatch.Value)"
-            Write-Host "💡 Copy this URL. You will need it to connect."
+          # التحقق من وجود الملف وقراءته
+          if (Test-Path "cloudflared.log") {
+            $logContent = Get-Content -Path "cloudflared.log" -Raw
+            $urlMatch = [regex]::Match($logContent, 'https://[a-zA-Z0-9-]+\.trycloudflare\.com')
+            if ($urlMatch.Success) {
+              Write-Host "✅ TUNNEL STARTED SUCCESSFULLY!"
+              Write-Host "🌐 YOUR TUNNEL URL: $($urlMatch.Value)"
+              Write-Host "💡 Copy this URL. You will need it to connect."
+            } else {
+              Write-Host "❌ Could not find the URL in the log file. Here is the full log:"
+              Write-Host $logContent
+            }
           } else {
-            Write-Host "❌ Could not find the URL. Here is the log:"
-            Write-Host $logContent
+            Write-Host "❌ Log file 'cloudflared.log' was not created. Here are the files in the current directory:"
+            Get-ChildItem | Format-Table -AutoSize
           }
-
+          
           Write-Host ""
           Write-Host "📋 CONNECTION DETAILS:"
           Write-Host "   USERNAME: runneradmin"
